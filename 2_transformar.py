@@ -8,6 +8,10 @@ Original file is located at
 
 # fase 2"""
 
+import os
+import pandas as pd
+import psycopg2
+
 DB_CONFIG = {
     "dbname": "portal_transparencia",
     "user": "postgres",
@@ -83,10 +87,6 @@ def importar_dados_raw():
             cursor.close()
         if conn is not None:
             conn.close()
-
-import os
-import pandas as pd
-import psycopg2
 
 def criar_tabelas_e_processar_pipeline():
     global DIRETORIO_ARQUIVOS
