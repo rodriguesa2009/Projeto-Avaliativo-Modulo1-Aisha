@@ -1,11 +1,27 @@
+-- =============================================================
+-- Fase 0 - Banco e tabelas (Arquitetura Medallion: Raw e Silver)
+--
+-- Como executar (no terminal):
+--   sudo -u postgres psql -f 0_criar_banco.sql
+--
+-- A senha do usuário e demais credenciais ficam no arquivo .env
+-- (nunca neste script).
+-- =============================================================
 
-ALTER ROLE postgres WITH PASSWORD 'teste123';
-CREATE DATABASE portal_transparencia;
+-- Cria o database somente se ele ainda não existir
+SELECT 'CREATE DATABASE portal_transparencia'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'portal_transparencia')
+\gexec
 
--- Conectar ao banco 'portal_transparencia' (Rodar no psql se necessário)
--- \c portal_transparencia;
+-- Conecta ao database criado: as tabelas abaixo ficam nele
+\c portal_transparencia
 
--- Tabelas Raw (Dados Brutos - VARCHAR para receber o CSV sem erros)
+
+-- =============================================================
+-- CAMADA RAW: cópia fiel dos CSVs (todas as colunas VARCHAR,
+-- sem constraints)
+-- =============================================================
+
 CREATE TABLE IF NOT EXISTS raw_pagamento (
     "Identificador do processo de viagem" VARCHAR,
     "Número da Proposta (PCDP)" VARCHAR,
@@ -84,7 +100,10 @@ CREATE TABLE IF NOT EXISTS raw_viagem (
 );
 
 
--- Tabelas Silver (Dados Tratados, Tipados e com Chaves Estruturadas)
+-- =============================================================
+-- CAMADA SILVER: dados tipados, com PK, FK e constraints
+-- =============================================================
+
 CREATE TABLE IF NOT EXISTS silver_viagem (
     id_viagem VARCHAR(100) PRIMARY KEY NOT NULL,
     num_proposta VARCHAR(50),
@@ -145,39 +164,3 @@ CREATE TABLE IF NOT EXISTS silver_trecho (
     numero_diarias DECIMAL(12,2) CHECK (numero_diarias >= 0),
     UNIQUE (id_viagem, sequencia_trecho)
 );
-
--- Tabela Gold (Resumo Analítico)
-CREATE TABLE IF NOT EXISTS gold_resumo_viagens (
-    id_resumo SERIAL PRIMARY KEY,
-    nome_orgao_superior VARCHAR(255),
-    nome_viajante VARCHAR(255),
-    cargo VARCHAR(255),
-    total_viagens INT,
-    gasto_diarias DECIMAL(14,2),
-    gasto_passagens DECIMAL(14,2),
-    gasto_total_geral DECIMAL(14,2)
-);
-
--- Query de Carga da Camada Gold baseada nas Viagens Realizadas
-INSERT INTO gold_resumo_viagens (
-    nome_orgao_superior, nome_viajante, cargo,
-    total_viagens, gasto_diarias, gasto_passagens, gasto_total_geral
-)
-SELECT
-    nome_orgao_superior,
-    nome_viajante,
-    cargo,
-    COUNT(id_viagem) as total_viagens,
-    SUM(valor_diarias) as gasto_diarias,
-    SUM(valor_passagens) as gasto_passagens,
-    SUM(valor_total) as gasto_total_geral
-FROM silver_viagem
-WHERE situacao = 'Realizada'
-GROUP BY nome_orgao_superior, nome_viajante, cargo;
-
--- Query analítica: Top 5 Orgãos com maior investimento/gasto total
-SELECT nome_orgao_superior, SUM(gasto_total_geral) as investimento_total
-FROM gold_resumo_viagens
-GROUP BY nome_orgao_superior
-ORDER BY investimento_total DESC
-LIMIT 5;
