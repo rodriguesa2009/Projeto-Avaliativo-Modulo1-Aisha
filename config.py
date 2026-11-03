@@ -36,14 +36,14 @@ carregar_env()
 
 
 # ---------------------------------------------------------------------------
-# Credenciais do MySQL (vem do .env)
+# Credenciais do PostgreSQL (vem do .env)
 # ---------------------------------------------------------------------------
-MYSQL_CONFIG = {
-    "host": os.environ.get("MYSQL_HOST", "localhost"),
-    "port": int(os.environ.get("MYSQL_PORT", "3306")),
-    "user": os.environ.get("MYSQL_USER", "root"),
-    "password": os.environ.get("MYSQL_PASSWORD", ""),
-    "database": os.environ.get("MYSQL_DATABASE", "transparencia"),
+POSTGRES_CONFIG = {
+    "host": os.environ.get("POSTGRES_HOST", "localhost"),
+    "port": int(os.environ.get("POSTGRES_PORT", "5432")),
+    "user": os.environ.get("POSTGRES_USER", "postgres"),
+    "password": os.environ.get("POSTGRES_PASSWORD", ""),
+    "dbname": os.environ.get("POSTGRES_DATABASE", "transparencia"),
 }
 
 
@@ -53,11 +53,16 @@ MYSQL_CONFIG = {
 ANO = "2025"
 
 # ---- De onde baixar o .zip ----
+# O arquivo (enxuto, so com jan-jun de 2025) fica no Google Drive da escola.
+# ID do arquivo no Google Drive:
+# Como obter: no Drive clique em "Compartilhar" -> "Qualquer pessoa com o link";
+# o link fica .../file/d/ESTE_TRECHO_E_O_ID/view -> copie o ID e cole abaixo.
 DRIVE_FILE_ID = "1b9Yc_s9gm6TAERY3BjOw2bixu70X3tZL"
 
 # Tamanho do bloco de leitura/insercao (numero de linhas por vez).
-
+# Ler tudo de uma vez estouraria a memoria; por isso lemos em "pedacos".
 TAMANHO_BLOCO = 50_000
+
 
 # ---------------------------------------------------------------------------
 # Mapeamento: cada arquivo CSV dentro do .zip -> tabela RAW correspondente
