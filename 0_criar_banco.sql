@@ -1,28 +1,21 @@
 -- =============================================================
--- Fase 0 - Banco e tabelas (Arquitetura Medallion: Raw e Silver)
+-- Fase 0 - Tabelas espelho dos CSVs de origem (PostgreSQL)
 --
--- Como executar (no terminal):
---   sudo -u postgres psql -f 0_criar_banco.sql
+-- Quatro tabelas, uma por arquivo CSV, com os nomes das colunas
+-- exatamente como estão no cabeçalho de cada arquivo. Todas as
+-- colunas são VARCHAR, sem constraints, para preservar o texto
+-- original (zeros à esquerda, vírgulas decimais, datas DD/MM/AAAA).
 --
--- A senha do usuário e demais credenciais ficam no arquivo .env
--- (nunca neste script).
+-- Como os nomes começam com número, ficam sempre entre aspas
+-- duplas: "2025_Viagem".
+--
+-- Como executar (o banco portal_transparencia já deve existir):
+--   PGPASSWORD=teste123 psql -h localhost -U postgres \
+--       -d portal_transparencia -f 0_criar_banco.sql
 -- =============================================================
 
--- Cria o database somente se ele ainda não existir
-SELECT 'CREATE DATABASE portal_transparencia'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'portal_transparencia')
-\gexec
-
--- Conecta ao database criado: as tabelas abaixo ficam nele
-\c portal_transparencia
-
-
--- =============================================================
--- CAMADA RAW: cópia fiel dos CSVs (todas as colunas VARCHAR,
--- sem constraints)
--- =============================================================
-
-CREATE TABLE IF NOT EXISTS raw_pagamento (
+-- 2025_Pagamento.csv: 10 colunas
+CREATE TABLE IF NOT EXISTS public."2025_Pagamento" (
     "Identificador do processo de viagem" VARCHAR,
     "Número da Proposta (PCDP)" VARCHAR,
     "Código do órgão superior" VARCHAR,
@@ -35,7 +28,8 @@ CREATE TABLE IF NOT EXISTS raw_pagamento (
     "Valor" VARCHAR
 );
 
-CREATE TABLE IF NOT EXISTS raw_passagem (
+-- 2025_Passagem.csv: 19 colunas
+CREATE TABLE IF NOT EXISTS public."2025_Passagem" (
     "Identificador do processo de viagem" VARCHAR,
     "Número da Proposta (PCDP)" VARCHAR,
     "Meio de transporte" VARCHAR,
@@ -57,7 +51,10 @@ CREATE TABLE IF NOT EXISTS raw_passagem (
     "Hora da emissão/compra" VARCHAR
 );
 
-CREATE TABLE IF NOT EXISTS raw_trecho (
+-- 2025_Trecho.csv: 14 colunas
+-- O espaço no fim do primeiro cabeçalho é intencional: ele existe
+-- no CSV original e foi preservado.
+CREATE TABLE IF NOT EXISTS public."2025_Trecho" (
     "Identificador do processo de viagem " VARCHAR,
     "Número da Proposta (PCDP)" VARCHAR,
     "Sequência Trecho" VARCHAR,
@@ -74,7 +71,8 @@ CREATE TABLE IF NOT EXISTS raw_trecho (
     "Missao?" VARCHAR
 );
 
-CREATE TABLE IF NOT EXISTS raw_viagem (
+-- 2025_Viagem.csv: 22 colunas
+CREATE TABLE IF NOT EXISTS public."2025_Viagem" (
     "Identificador do processo de viagem" VARCHAR,
     "Número da Proposta (PCDP)" VARCHAR,
     "Situação" VARCHAR,
@@ -97,70 +95,4 @@ CREATE TABLE IF NOT EXISTS raw_viagem (
     "Valor passagens" VARCHAR,
     "Valor devolução" VARCHAR,
     "Valor outros gastos" VARCHAR
-);
-
-
--- =============================================================
--- CAMADA SILVER: dados tipados, com PK, FK e constraints
--- =============================================================
-
-CREATE TABLE IF NOT EXISTS silver_viagem (
-    id_viagem VARCHAR(100) PRIMARY KEY NOT NULL,
-    num_proposta VARCHAR(50),
-    situacao VARCHAR(50),
-    viagem_urgente VARCHAR(10),
-    codigo_orgao_superior VARCHAR(50),
-    nome_orgao_superior VARCHAR(255) NOT NULL,
-    nome_viajante VARCHAR(255),
-    cargo VARCHAR(255),
-    data_inicio DATE,
-    data_fim DATE,
-    destinos VARCHAR(4000),
-    motivo VARCHAR(4000),
-    valor_diarias DECIMAL(12,2) CHECK (valor_diarias >= 0),
-    valor_passagens DECIMAL(12,2) CHECK (valor_passagens >= 0),
-    valor_devolucao DECIMAL(12,2) CHECK (valor_devolucao >= 0),
-    valor_outros_gastos DECIMAL(12,2) CHECK (valor_outros_gastos >= 0),
-    valor_total DECIMAL(14,2),
-    duracao_dias INT CHECK (duracao_dias >= 0)
-);
-
-CREATE TABLE IF NOT EXISTS silver_pagamento (
-    id_pagamento SERIAL PRIMARY KEY,
-    id_viagem VARCHAR(100) NOT NULL REFERENCES silver_viagem(id_viagem),
-    num_proposta VARCHAR(50),
-    nome_orgao_pagador VARCHAR(255),
-    nome_ug_pagadora VARCHAR(255),
-    tipo_pagamento VARCHAR(100) NOT NULL,
-    valor DECIMAL(12,2) CHECK (valor >= 0)
-);
-
-CREATE TABLE IF NOT EXISTS silver_passagem (
-    id_passagem SERIAL PRIMARY KEY,
-    id_viagem VARCHAR(100) NOT NULL REFERENCES silver_viagem(id_viagem),
-    meio_transporte VARCHAR(100),
-    pais_origem_ida VARCHAR(100),
-    uf_origem_ida VARCHAR(100),
-    cidade_origem_ida VARCHAR(150),
-    pais_destino_ida VARCHAR(100),
-    uf_destino_ida VARCHAR(100),
-    cidade_destino_ida VARCHAR(150),
-    valor_passagem DECIMAL(12,2) CHECK (valor_passagem >= 0),
-    taxa_servico DECIMAL(12,2) CHECK (taxa_servico >= 0),
-    data_emissao DATE
-);
-
-CREATE TABLE IF NOT EXISTS silver_trecho (
-    id_trecho SERIAL PRIMARY KEY,
-    id_viagem VARCHAR(100) NOT NULL REFERENCES silver_viagem(id_viagem),
-    sequencia_trecho INT,
-    origem_data DATE,
-    origem_uf VARCHAR(100),
-    origem_cidade VARCHAR(150),
-    destino_data DATE,
-    destino_uf VARCHAR(100),
-    destino_cidade VARCHAR(150),
-    meio_transporte VARCHAR(100),
-    numero_diarias DECIMAL(12,2) CHECK (numero_diarias >= 0),
-    UNIQUE (id_viagem, sequencia_trecho)
 );
